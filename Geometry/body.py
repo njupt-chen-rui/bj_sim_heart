@@ -162,7 +162,7 @@ class Body:
 
 
 if __name__ == "__main__":
-    ti.init(arch=ti.cuda)
+    ti.init(arch=ti.cuda, default_fp=ti.f64)
     # 顶点位置
     pos_np = np.array(meshData['verts'], dtype=float)
     pos_np = pos_np.reshape((-1, 3))

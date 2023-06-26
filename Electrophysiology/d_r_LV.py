@@ -5,7 +5,8 @@ from Geometry.body import Body
 # from test1 import meshData
 import matplotlib.pyplot as plt
 import time
-from data.LV1 import meshData
+# from data.LV1 import meshData
+from data.cube import meshData
 
 
 @ti.data_oriented
@@ -17,7 +18,8 @@ class diffusion_reaction:
 
     def __init__(self, body: Body):
         self.body = body
-        self.Vm = ti.field(float, shape=(body.num_vertex,))
+        # self.Vm = ti.field(float, shape=(body.num_vertex,))
+        self.Vm = self.body.Vm
         self.w = ti.field(float, shape=(body.num_vertex,))
         self.I_ext = ti.field(float, shape=(body.num_vertex,))
         self.init_Vm_w_and_I()
@@ -34,9 +36,11 @@ class diffusion_reaction:
         self.TinyReal = 2.71051e-20
 
         # parameter of diffusion model
-        self.sigma_f = 7.643e-5
-        self.sigma_s = 3.494e-5
-        self.sigma_n = 1.125e-5
+        self.sigma_f = 7.643e-5 * 5e4
+        self.sigma_s = 3.494e-5 * 5e4
+        self.sigma_n = 1.125e-5 * 5e4
+        self.Dm = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
+        self.DmInv = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
         self.Ds = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
         self.F = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
         self.Be = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
@@ -80,6 +84,29 @@ class diffusion_reaction:
     @ti.kernel
     def init_Ds_F_Be(self):
         for i in range(self.body.num_tet):
+            self.Dm[i][0, 0] = self.body.vertex[self.body.elements[i][0]][0] - \
+                               self.body.vertex[self.body.elements[i][3]][0]
+            self.Dm[i][1, 0] = self.body.vertex[self.body.elements[i][0]][1] - \
+                               self.body.vertex[self.body.elements[i][3]][1]
+            self.Dm[i][2, 0] = self.body.vertex[self.body.elements[i][0]][2] - \
+                               self.body.vertex[self.body.elements[i][3]][2]
+            self.Dm[i][0, 1] = self.body.vertex[self.body.elements[i][1]][0] - \
+                               self.body.vertex[self.body.elements[i][3]][0]
+            self.Dm[i][1, 1] = self.body.vertex[self.body.elements[i][1]][1] - \
+                               self.body.vertex[self.body.elements[i][3]][1]
+            self.Dm[i][2, 1] = self.body.vertex[self.body.elements[i][1]][2] - \
+                               self.body.vertex[self.body.elements[i][3]][2]
+            self.Dm[i][0, 2] = self.body.vertex[self.body.elements[i][2]][0] - \
+                               self.body.vertex[self.body.elements[i][3]][0]
+            self.Dm[i][1, 2] = self.body.vertex[self.body.elements[i][2]][1] - \
+                               self.body.vertex[self.body.elements[i][3]][1]
+            self.Dm[i][2, 2] = self.body.vertex[self.body.elements[i][2]][2] - \
+                               self.body.vertex[self.body.elements[i][3]][2]
+
+        for i in range(self.body.num_tet):
+            self.DmInv[i] = self.Dm[i].inverse()
+
+        for i in range(self.body.num_tet):
             self.Ds[i][0, 0] = self.body.vertex[self.body.elements[i][0]][0] - \
                                self.body.vertex[self.body.elements[i][3]][0]
             self.Ds[i][1, 0] = self.body.vertex[self.body.elements[i][0]][1] - \
@@ -120,13 +147,13 @@ class diffusion_reaction:
                                self.body.vertex[self.body.elements[i][0]][2]
 
         for i in range(self.body.num_tet):
-            self.F[i] = self.Ds[i] @ self.body.DmInv[i]
+            self.F[i] = self.Ds[i] @ self.DmInv[i]
 
     @ti.kernel
     def init_fiber(self):
         for i in range(self.body.num_tet):
             self.body.tet_fiber[i] = tm.vec3([0., -1.0, 0.])
-            self.body.tet_fiber[i] = tm.vec3([1., 0., 0.])
+            self.body.tet_sheet[i] = tm.vec3([1., 0., 0.])
         for i in range(self.body.num_tet):
             self.fiber[i] = self.F[i] @ self.body.tet_fiber[i]
             self.sheet[i] = self.F[i] @ self.body.tet_sheet[i]
@@ -444,10 +471,17 @@ class diffusion_reaction:
     def apply_stimulation(self):
         vert = ti.static(self.body.vertex)
         for i in vert:
-            # if vert[i][1] > 4.9:
-            if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 5.) * (vert[i][1] - 5.) + \
-                    vert[i][2] * vert[i][2] < (1. / 1.):
+            # if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 5.) * (vert[i][1] - 5.) + \
+            #         vert[i][2] * vert[i][2] < (1. / 1.):
+            #     self.I_ext[i] = 1.0
+            # if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 25.5) * (vert[i][1] - 25.5) + \
+            #         vert[i][2] * vert[i][2] < (1. / 1.):
+            #     self.I_ext[i] = 1.0
+            if (vert[i][0]) * (vert[i][0]) + (vert[i][1]) * (vert[i][1]) + vert[i][2] * vert[i][2] < (1. / 1.):
                 self.I_ext[i] = 1.0
+            # if (vert[i][0]) * (vert[i][0]) + (vert[i][1] + 20) * (vert[i][1] + 20) + \
+            #         vert[i][2] * vert[i][2] < (5. / 1.):
+            #     self.I_ext[i] = 1.0
 
     @ti.kernel
     def cancel_stimulation(self):
@@ -473,8 +507,8 @@ class diffusion_reaction:
         return res
 
     def update(self, sub_steps):
-        # dt = 1. / 2. / sub_steps
         dt = 1. / 1.29 / 6. / sub_steps
+        # dt = 1. / 60. / sub_steps
         for _ in range(sub_steps):
             self.update_Vm(dt)
         self.update_color()
@@ -632,6 +666,7 @@ if __name__ == "__main__":
     # tet_fiber方向
     fiber_tet_np = np.array(meshData['fiberDirection'], dtype=float)
     fiber_tet_np = fiber_tet_np.reshape((-1, 3))
+
     # tet_sheet方向
     sheet_tet_np = np.array(meshData['sheetDirection'], dtype=float)
     sheet_tet_np = sheet_tet_np.reshape((-1, 3))

@@ -14,7 +14,6 @@ class Body:
                  tet_sheet_np: np.ndarray, num_edge_set_np, edge_set_np: np.ndarray, num_tet_set_np,
                  tet_set_np: np.ndarray, bou_tag_dirichlet_np: np.ndarray, bou_tag_neumann_np: np.ndarray) -> None:
         # len(vertex[0]) = 3, len(vertex) = num_vert
-        self.density = 1000.0
         self.num_vertex = len(vert_np)
         self.vertex = ti.Vector.field(3, dtype=float, shape=(self.num_vertex, ))
         self.vertex.from_numpy(vert_np)
@@ -66,7 +65,6 @@ class Body:
 
         self.vel = ti.Vector.field(3, float, shape=(self.num_vertex,))
         self.init_vel()
-        self.Vm = ti.field(float, shape=(self.num_vertex,))
 
         # volume
         self.volume = ti.field(float, self.num_tet)
@@ -86,10 +84,10 @@ class Body:
     @ti.kernel
     def init_electrophysiology(self):
         for i in self.elements:
-            self.tet_Ta[i] = 600.0
+            self.tet_Ta[i] = 60.0
 
         for i in self.vertex:
-            self.ver_Ta[i] = 600.0
+            self.ver_Ta[i] = 60.0
 
     @ti.kernel
     def scale_vertex(self, scale: float):
@@ -98,18 +96,16 @@ class Body:
 
     @ti.kernel
     def init_DmInv(self):
-        Dm, vertex, tet = ti.static(self.Dm, self.vertex, self.elements)
-        # 0412 -
         for i in range(self.num_tet):
-            Dm[i][0, 0] = vertex[tet[i][1]][0] - vertex[tet[i][0]][0]
-            Dm[i][1, 0] = vertex[tet[i][1]][1] - vertex[tet[i][0]][1]
-            Dm[i][2, 0] = vertex[tet[i][1]][2] - vertex[tet[i][0]][2]
-            Dm[i][0, 1] = vertex[tet[i][2]][0] - vertex[tet[i][0]][0]
-            Dm[i][1, 1] = vertex[tet[i][2]][1] - vertex[tet[i][0]][1]
-            Dm[i][2, 1] = vertex[tet[i][2]][2] - vertex[tet[i][0]][2]
-            Dm[i][0, 2] = vertex[tet[i][3]][0] - vertex[tet[i][0]][0]
-            Dm[i][1, 2] = vertex[tet[i][3]][1] - vertex[tet[i][0]][1]
-            Dm[i][2, 2] = vertex[tet[i][3]][2] - vertex[tet[i][0]][2]
+            self.Dm[i][0, 0] = self.vertex[self.elements[i][0]][0] - self.vertex[self.elements[i][3]][0]
+            self.Dm[i][1, 0] = self.vertex[self.elements[i][0]][1] - self.vertex[self.elements[i][3]][1]
+            self.Dm[i][2, 0] = self.vertex[self.elements[i][0]][2] - self.vertex[self.elements[i][3]][2]
+            self.Dm[i][0, 1] = self.vertex[self.elements[i][1]][0] - self.vertex[self.elements[i][3]][0]
+            self.Dm[i][1, 1] = self.vertex[self.elements[i][1]][1] - self.vertex[self.elements[i][3]][1]
+            self.Dm[i][2, 1] = self.vertex[self.elements[i][1]][2] - self.vertex[self.elements[i][3]][2]
+            self.Dm[i][0, 2] = self.vertex[self.elements[i][2]][0] - self.vertex[self.elements[i][3]][0]
+            self.Dm[i][1, 2] = self.vertex[self.elements[i][2]][1] - self.vertex[self.elements[i][3]][1]
+            self.Dm[i][2, 2] = self.vertex[self.elements[i][2]][2] - self.vertex[self.elements[i][3]][2]
 
         for i in range(self.num_tet):
             self.DmInv[i] = self.Dm[i].inverse()
@@ -132,13 +128,6 @@ class Body:
                                 self.vert_fiber[self.elements[i][2]] + self.vert_fiber[self.elements[i][3]]
             self.tet_fiber[i] /= 4.0
             self.tet_fiber[i] /= tm.length(self.tet_fiber[i])
-
-    @ti.kernel
-    def translation(self, x: float, y: float, z: float):
-        for i in self.vertex:
-            self.vertex[i][0] += x
-            self.vertex[i][1] += y
-            self.vertex[i][2] += z
 
     def show(self):
         windowLength = 1024
@@ -218,7 +207,7 @@ if __name__ == "__main__":
 
     body = Body(pos_np, tet_np, edge_np, fiber_tet_np, sheet_tet_np, num_edge_set_np, edge_set_np, num_tet_set_np,
                 tet_set_np, bou_tag_dirichlet_np, bou_tag_neumann_np)
-    # body.show()
+    body.show()
     # Youngs_Modulus = 1000.
     # Poisson_Ratio = 0.49
     # material = Stable_Neo_Hookean(Youngs_modulus=Youngs_Modulus, Poisson_ratio=Poisson_Ratio)
@@ -227,8 +216,3 @@ if __name__ == "__main__":
     # sys = PBD_with_Continuous_Materials(body, material, 10)
     #
     # sys.show()
-
-    body.translation(0, 50, 0)
-    for i in range(body.num_vertex):
-        if body.vertex[i][1] < 0:
-            print(body.vertex[i][1])

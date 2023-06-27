@@ -81,9 +81,11 @@ if __name__ == "__main__":
     camera = ti.ui.Camera()
 
     # initial camera position
-    camera.position(20, 60, 100)
-    camera.lookat(0.5, 0.3, 0.5)
+
+    camera.position(0, 40, 50)
+    camera.lookat(0, 10, 0.0)
     camera.fov(55)
+
     # dynamics_sys.update_Jacobi()
     while window.running:
 

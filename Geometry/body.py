@@ -86,10 +86,10 @@ class Body:
     @ti.kernel
     def init_electrophysiology(self):
         for i in self.elements:
-            self.tet_Ta[i] = 600.0
+            self.tet_Ta[i] = 100.0 * 10
 
         for i in self.vertex:
-            self.ver_Ta[i] = 600.0
+            self.ver_Ta[i] = 100.0 * 10
 
     @ti.kernel
     def scale_vertex(self, scale: float):

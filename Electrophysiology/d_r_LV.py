@@ -5,8 +5,8 @@ from Geometry.body import Body
 # from test1 import meshData
 import matplotlib.pyplot as plt
 import time
-# from data.LV1 import meshData
-from data.cube import meshData
+from data.LV1 import meshData
+# from data.cube import meshData
 
 
 @ti.data_oriented
@@ -471,14 +471,14 @@ class diffusion_reaction:
     def apply_stimulation(self):
         vert = ti.static(self.body.vertex)
         for i in vert:
-            # if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 5.) * (vert[i][1] - 5.) + \
-            #         vert[i][2] * vert[i][2] < (1. / 1.):
-            #     self.I_ext[i] = 1.0
+            if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 5.) * (vert[i][1] - 5.) + \
+                    vert[i][2] * vert[i][2] < (1. / 1.):
+                self.I_ext[i] = 1.0
             # if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 25.5) * (vert[i][1] - 25.5) + \
             #         vert[i][2] * vert[i][2] < (1. / 1.):
             #     self.I_ext[i] = 1.0
-            if (vert[i][0]) * (vert[i][0]) + (vert[i][1]) * (vert[i][1]) + vert[i][2] * vert[i][2] < (1. / 1.):
-                self.I_ext[i] = 1.0
+            # if (vert[i][0]) * (vert[i][0]) + (vert[i][1]) * (vert[i][1]) + vert[i][2] * vert[i][2] < (1. / 1.):
+            #     self.I_ext[i] = 1.0
             # if (vert[i][0]) * (vert[i][0]) + (vert[i][1] + 20) * (vert[i][1] + 20) + \
             #         vert[i][2] * vert[i][2] < (5. / 1.):
             #     self.I_ext[i] = 1.0
@@ -615,20 +615,21 @@ class diffusion_reaction:
         # camera.position(center[0] * 1, center[1] * 1, center[2] * 30)
         camera.position(0, 30, 50)
         camera.lookat(center[0], center[1], center[2])
+        # print((center[0], center[1], center[2]))
         camera.fov(55)
         iter_time = 0
         while window.running:
             if iter_time == 0:
                 self.apply_stimulation()
-            # elif iter_time == 49:
-            #     iter_time = 0
-            elif iter_time < 5:
                 iter_time += 1
-            elif iter_time == 5:
-                iter_time += 1
+            elif iter_time == 10:
                 self.cancel_stimulation()
-            # else:
-            #     iter_time += 1
+                iter_time += 1
+            elif iter_time < 600:
+                iter_time += 1
+            elif iter_time == 600:
+                iter_time = 0
+
             self.update(sub_steps)
             # set the camera, you can move around by pressing 'wasdeq'
             camera.track_user_inputs(window, movement_speed=0.2, hold_key=ti.ui.LMB)

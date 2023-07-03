@@ -5,9 +5,9 @@ from Geometry.body import Body
 # from test1 import meshData
 import matplotlib.pyplot as plt
 import time
-from data.LV1 import meshData
+# from data.LV1 import meshData
 # from data.cube import meshData
-# from data.heart import meshData
+from data.heart import meshData
 
 
 @ti.data_oriented
@@ -37,9 +37,9 @@ class diffusion_reaction:
         self.TinyReal = 2.71051e-20
 
         # parameter of diffusion model
-        self.sigma_f = 7.643e-5 * 5e4
-        self.sigma_s = 3.494e-5 * 5e4
-        self.sigma_n = 1.125e-5 * 5e4
+        self.sigma_f = 7.643e-5
+        self.sigma_s = 3.494e-5
+        self.sigma_n = 1.125e-5
         self.Dm = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
         self.DmInv = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
         self.Ds = ti.Matrix.field(3, 3, float, shape=(body.num_tet,))
@@ -469,20 +469,21 @@ class diffusion_reaction:
         self.calculate_reaction(dt * 0.5)
 
     @ti.kernel
-    def apply_stimulation(self):
+    def apply_stimulation(self, x: float, y: float, z: float, radius: float, val_I: float):
         vert = ti.static(self.body.vertex)
+        print(x, y, z, radius)
         for i in vert:
-            if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 5.) * (vert[i][1] - 5.) + \
-                    vert[i][2] * vert[i][2] < (1. / 1.):
-                self.I_ext[i] = 1.0
-            # if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 25.5) * (vert[i][1] - 25.5) + \
-            #         vert[i][2] * vert[i][2] < (1. / 1.):
-            #     self.I_ext[i] = 1.0
-            # if (vert[i][0]) * (vert[i][0]) + (vert[i][1]) * (vert[i][1]) + vert[i][2] * vert[i][2] < (1. / 1.):
-            #     self.I_ext[i] = 1.0
-            # if (vert[i][0]) * (vert[i][0]) + (vert[i][1] + 20) * (vert[i][1] + 20) + \
-            #         vert[i][2] * vert[i][2] < (5. / 1.):
-            #     self.I_ext[i] = 1.0
+            if (vert[i][0] - x) * (vert[i][0] - x) + (vert[i][1] - y) * (vert[i][1] - y) + \
+                    (vert[i][2] - z) * (vert[i][2] - z) < radius:
+                self.I_ext[i] = val_I
+
+    # @ti.kernel
+    # def apply_stimulation(self):
+    #     vert = ti.static(self.body.vertex)
+    #     for i in vert:
+    #         if (vert[i][0] - 8.5) * (vert[i][0] - 8.5) + (vert[i][1] - 5.) * (vert[i][1] - 5.) + \
+    #                 vert[i][2] * vert[i][2] < (1. / 1.):
+    #             self.I_ext[i] = 1.0
 
     @ti.kernel
     def cancel_stimulation(self):
@@ -662,9 +663,6 @@ if __name__ == "__main__":
     # edge
     edge_np = np.array(meshData['tetEdgeIds'], dtype=int)
     edge_np = edge_np.reshape((-1, 2))
-    # surface tri index
-    # surf_tri_np = np.array(meshData['tetSurfaceTriIds'], dtype=int)
-    # surf_tri_np = surf_tri_np.reshape((-1, 3))
     # tet_fiber方向
     fiber_tet_np = np.array(meshData['fiberDirection'], dtype=float)
     fiber_tet_np = fiber_tet_np.reshape((-1, 3))
@@ -688,54 +686,71 @@ if __name__ == "__main__":
                 tet_set_np, bou_tag_dirichlet_np, bou_tag_neumann_np)
 
     dr = diffusion_reaction(body)
-    sigma_para = 5e-1
-    dr.sigma_f = sigma_para
-    dr.sigma_s = sigma_para
-    dr.sigma_n = sigma_para
-    # dr.init_Vm_stimulation()
-    # dr.apply_stimulation()
+    sigma_para = 20
+    dr.sigma_f *= sigma_para
+    dr.sigma_s *= sigma_para
+    dr.sigma_n *= sigma_para
+
     dr.update_color()
-    dr.show(2)
+
+    # gui
+    windowLength = 1024
+    lengthScale = min(windowLength, 512)
+    light_distance = lengthScale / 25.
+    vertex = dr.body.vertex
+
+    window = ti.ui.Window("body show", (windowLength, windowLength), vsync=True)
+    canvas = window.get_canvas()
+    scene = ti.ui.Scene()
+    camera = ti.ui.Camera()
+
+    camera.position(-0.3, 0.9, 1.78)
+    camera.lookat(-0.13, 0.53, 0.867)
+    camera.up(0, 1, 0)
+
+    iter_time = 0
+    while window.running:
+        if iter_time == 0:
+            dr.apply_stimulation(x=0.0, y=-0.45, z=0.0, radius=0.03, val_I=1.0)
+            iter_time += 1
+        elif iter_time == 10:
+            dr.cancel_stimulation()
+            iter_time += 1
+        elif iter_time < 600:
+            iter_time += 1
+        elif iter_time == 600:
+            iter_time = 0
+
+        dr.update(sub_steps=2)
+        # set the camera, you can move around by pressing 'wasdeq'
+        camera.track_user_inputs(window, movement_speed=0.1, hold_key=ti.ui.LMB)
+        scene.set_camera(camera)
+
+        # set the light
+        scene.point_light(pos=(-light_distance, 0., light_distance), color=(0.5, 0.5, 0.5))
+        scene.point_light(pos=(light_distance, 0., light_distance), color=(0.5, 0.5, 0.5))
+        scene.ambient_light(color=(0.5, 0.5, 0.5))
+
+        # draw
+        # scene.particles(pos, radius=0.02, color=(0, 1, 1))
+        scene.mesh(vertex, indices=dr.body.surfaces, two_sided=False, per_vertex_color=dr.vertex_color)
+        # scene.mesh(vertex, indices=self.body.surfaces, color=(1., 1., 1.), two_sided=False)
+
+        # show the frame
+        canvas.scene(scene)
+        window.show()
+
     print(dr.Vm)
+    # get camera parameter
+    # print(camera.curr_position)
+    # print(camera.curr_lookat)
+    # print(camera.curr_up)
 
-    # ind = dr.get_near_vertex_index(10, 1, 1)
-    # print(ind)
-
-    # dr.debug_pcg(0.01)
-    # path_A = "path_A.txt"
-    # path_b = "path_b.txt"
-    # np.savetxt(path_A, dr.cg_A.to_numpy())
-    # np.savetxt(path_b, dr.cg_b.to_numpy())
-    # print(dr.cg_A)
-    # print(dr.cg_b)
-    # print(dr.cg_x)
-    # print(dr.body.num_vertex)
-    # print(dr.cg_A.shape)
-
-    # total_time = 100
-    # sub_time = 10
-    # table_x = np.linspace(0, total_time, total_time * sub_time + 1)
-    # ind = 6487  # 6487, 2647
-    # vm = dr.Vm[ind]
-    # table_y = np.array(vm)
-    # # begin_time = time.time()
-    # dt = 1.0 / sub_time
-    # dr.init_Vm_stimulation()
-    # for tt in range(total_time):
-    #     for st in range(sub_time):
-    #         # if tt == 0 and st == 0:
-    #         #     dr.apply_stimulation()
-    #         # if tt == 0 and st == 10:
-    #         #     dr.cancel_stimulation()
-    #         dr.update_Vm(dt)
-    #         vm = dr.Vm[ind]
-    #         table_y = np.append(table_y, vm)
-    #         # end_time = time.time()
-    #         # print(tt * sub_time + st)
-    #         # print(end_time - begin_time)
-    #         # begin_time = end_time
-    # plt.plot(table_x, table_y)
-    # # plt.axis([0, total_time, 0, 1])
-    # plt.show()
-    # print(table_y)
-    # # print(dr.D[1000])
+    # get position to apply simulation
+    x_min = min(vertex[i][0] for i in range(vertex.shape[0]))
+    x_max = max(vertex[i][0] for i in range(vertex.shape[0]))
+    y_min = min(vertex[i][1] for i in range(vertex.shape[0]))
+    y_max = max(vertex[i][1] for i in range(vertex.shape[0]))
+    z_min = min(vertex[i][2] for i in range(vertex.shape[0]))
+    z_max = max(vertex[i][2] for i in range(vertex.shape[0]))
+    print(x_min, x_max, y_min, y_max, z_min, z_max)

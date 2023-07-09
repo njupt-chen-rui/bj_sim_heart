@@ -22,8 +22,6 @@ def read_data():
     # surface tri index
     # surf_tri_np = np.array(meshData['tetSurfaceTriIds'], dtype=int)
     # surf_tri_np = surf_tri_np.reshape((-1, 3))
-    vert_fiber_np = np.array(meshData['vert_fiber'], dtype=float)
-    vert_fiber_np = vert_fiber_np.reshape((-1, 3))
 
     # tet_fiber方向
     fiber_tet_np = np.array(meshData['fiberDirection'], dtype=float)
@@ -65,12 +63,14 @@ if __name__ == "__main__":
     body = read_data()
     body.translation(0., 5.0, 0.)
     num_per_tet_set_np = np.array(meshData['sum_tet_set'], dtype=int)
-    dynamics_sys = xpbd.XPBD_SNH_with_active(body=body, num_pts_np=num_per_tet_set_np)
+    vert_fiber_np = np.array(meshData['vert_fiber'], dtype=float)
+    vert_fiber_np = vert_fiber_np.reshape((-1, 3))
+    dynamics_sys = xpbd.XPBD_SNH_with_active(body=body, num_pts_np=num_per_tet_set_np, vert_fiber_np=vert_fiber_np)
     # dynamics_sys.numPosIters = 20
     ep_sys = ep.diffusion_reaction(body=body)
     # ep_sys.apply_stimulation()
     # print(body.tet_fiber)
-    body.set_Ta(20)
+    body.set_Ta(60)
 
     # draw fiber field
     num_tet = body.num_tet

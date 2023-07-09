@@ -39,6 +39,7 @@ class XPBD_SNH_with_active:
         self.tet_Ta = body.tet_Ta
         self.init()
 
+        self.vert_fiber = ti.Vector.field(3, float, shape=(self.num_vertex,))
         self.vert_fiber.from_numpy(vert_fiber_np)
 
     @ti.kernel
@@ -261,9 +262,18 @@ class XPBD_SNH_with_active:
             alpha = compliance / h / h * invVol[elemNr]
             dlambda = -C / (w + alpha)
 
+        # without proj
         for i in ti.static(range(4)):
             eid = elem[elemNr][i]
             pos[eid] += g[elemNr, i] * (dlambda * invMass[eid])
+
+        # with proj
+        # for i in ti.static(range(4)):
+        #     eid = elem[elemNr][i]
+        #     proj_a = g[elemNr, i] * (dlambda * invMass[eid])
+        #     proj_b = self.vert_fiber[eid]
+        #     proj_c = (tm.dot(proj_a, proj_b)) / (tm.dot(proj_b, proj_b)) * proj_b
+        #     pos[eid] += proj_c
 
 
 if __name__ == "__main__":

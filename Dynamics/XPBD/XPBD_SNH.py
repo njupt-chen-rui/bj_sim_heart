@@ -41,6 +41,7 @@ class XPBD_SNH_with_active:
 
         self.vert_fiber = ti.Vector.field(3, float, shape=(self.num_vertex,))
         self.vert_fiber.from_numpy(vert_fiber_np)
+        self.F = ti.Matrix.field(3, 3, float, shape=(self.num_element,))
 
     @ti.kernel
     def init(self):
@@ -268,12 +269,24 @@ class XPBD_SNH_with_active:
             pos[eid] += g[elemNr, i] * (dlambda * invMass[eid])
 
         # with proj
+        # # id = tm.ivec4(0, 0, 0, 0)
+        # # for j in ti.static(range(4)):
+        # #     id[j] = self.elements[elemNr][j]
+        # # v1 = pos[id[1]] - pos[id[0]]
+        # # v2 = pos[id[2]] - pos[id[0]]
+        # # v3 = pos[id[3]] - pos[id[0]]
+        # # Ds = tm.mat3(v1, v2, v3)
+        # # Ds = Ds.transpose()
+        # # F = Ds @ self.body.DmInv[elemNr]
         # for i in ti.static(range(4)):
         #     eid = elem[elemNr][i]
         #     proj_a = g[elemNr, i] * (dlambda * invMass[eid])
         #     proj_b = self.vert_fiber[eid]
-        #     proj_c = (tm.dot(proj_a, proj_b)) / (tm.dot(proj_b, proj_b)) * proj_b
-        #     pos[eid] += proj_c
+        #     # proj_b = F @ self.vert_fiber[eid]
+        #     # proj_a1 = (tm.dot(proj_a, proj_b)) / (tm.dot(proj_b, proj_b)) * proj_b
+        #     proj_a1 = (tm.dot(proj_a, proj_b)) / (tm.sqrt(tm.dot(proj_a, proj_a))) * (tm.sqrt(tm.dot(proj_b, proj_b))) * proj_a
+        #     proj_a2 = proj_a - proj_a1
+        #     pos[eid] += proj_a2
 
 
 if __name__ == "__main__":

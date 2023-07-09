@@ -70,7 +70,7 @@ if __name__ == "__main__":
     ep_sys = ep.diffusion_reaction(body=body)
     # ep_sys.apply_stimulation()
     # print(body.tet_fiber)
-    body.set_Ta(60)
+    body.set_Ta(20)
 
     # draw fiber field
     num_tet = body.num_tet

@@ -2,11 +2,11 @@ import taichi as ti
 import taichi.math as tm
 import numpy as np
 from Geometry.body import Body
-import Electrophysiology.d_r_LV as ep
+import Electrophysiology.ep_heart as ep
 import Dynamics.XPBD.XPBD_SNH as xpbd
-from data.LV1 import meshData
+# from data.LV1 import meshData
 # from data.cube import meshData
-# from data.heart import meshData
+from data.heart import meshData
 
 
 def read_data():
@@ -22,6 +22,9 @@ def read_data():
     # surface tri index
     # surf_tri_np = np.array(meshData['tetSurfaceTriIds'], dtype=int)
     # surf_tri_np = surf_tri_np.reshape((-1, 3))
+    vert_fiber_np = np.array(meshData['vert_fiber'], dtype=float)
+    vert_fiber_np = vert_fiber_np.reshape((-1, 3))
+
     # tet_fiber方向
     fiber_tet_np = np.array(meshData['fiberDirection'], dtype=float)
     fiber_tet_np = fiber_tet_np.reshape((-1, 3))
@@ -46,34 +49,42 @@ def read_data():
     return Body_
 
 
+@ti.kernel
+def get_fiber_field():
+    for i in body.elements:
+        id0, id1, id2, id3 = body.elements[i][0], body.elements[i][1], body.elements[i][2], body.elements[i][3]
+        fiber_field_vertex[2 * i] = body.vertex[id0] + body.vertex[id1] + body.vertex[id2] + body.vertex[id3]
+        fiber_field_vertex[2 * i] /= 4.0
+        fiber = body.tet_fiber[i]
+        fiber_field_vertex[2 * i + 1] = fiber_field_vertex[2 * i] + fiber * 0.1
+
+
 if __name__ == "__main__":
     ti.init(arch=ti.cuda, default_fp=ti.f32, kernel_profiler=True)
 
     body = read_data()
-    body.translation(0., 20.5, 0.)
+    body.translation(0., 5.0, 0.)
     num_per_tet_set_np = np.array(meshData['sum_tet_set'], dtype=int)
     dynamics_sys = xpbd.XPBD_SNH_with_active(body=body, num_pts_np=num_per_tet_set_np)
+    # dynamics_sys.numPosIters = 20
     ep_sys = ep.diffusion_reaction(body=body)
-    ep_sys.apply_stimulation()
+    # ep_sys.apply_stimulation()
     # print(body.tet_fiber)
+    body.set_Ta(20)
 
+    # draw fiber field
+    num_tet = body.num_tet
+    fiber_field_vertex = ti.Vector.field(3, dtype=float, shape=(2 * num_tet))
+    get_fiber_field()
 
-    # """
     # ---------------------------------------------------------------------------- #
     #                                      gui                                     #
     # ---------------------------------------------------------------------------- #
+    open_gui = True
     # set parameter
     windowLength = 1024
     lengthScale = min(windowLength, 512)
     light_distance = lengthScale / 25.
-
-    x_min = min(body.vertex[i][0] for i in range(body.vertex.shape[0]))
-    x_max = max(body.vertex[i][0] for i in range(body.vertex.shape[0]))
-    y_min = min(body.vertex[i][1] for i in range(body.vertex.shape[0]))
-    y_max = max(body.vertex[i][1] for i in range(body.vertex.shape[0]))
-    z_min = min(body.vertex[i][2] for i in range(body.vertex.shape[0]))
-    z_max = max(body.vertex[i][2] for i in range(body.vertex.shape[0]))
-    center = np.array([(x_min + x_max) / 2., (y_min + y_max) / 2., (z_min + z_max) / 2.])
 
     # init the window, canvas, scene and camera
     window = ti.ui.Window("body show", (windowLength, windowLength), vsync=True)
@@ -82,20 +93,19 @@ if __name__ == "__main__":
     camera = ti.ui.Camera()
 
     # initial camera position
-
-    camera.position(0, 40, 50)
-    camera.lookat(0, 10, 0.0)
-    camera.fov(55)
+    camera.position(-0.4, 6.02, 2.42)
+    camera.lookat(-0.258, 5.643, 1.5)
+    camera.up(0, 1, 0)
 
     # dynamics_sys.update_Jacobi()
-    while window.running:
+    while window.running and open_gui:
 
         # ep_sys.update(1)
         dynamics_sys.update()
         # print(body.tet_Ta)
 
         # set the camera, you can move around by pressing 'wasdeq'
-        camera.track_user_inputs(window, movement_speed=0.2, hold_key=ti.ui.LMB)
+        camera.track_user_inputs(window, movement_speed=0.05, hold_key=ti.ui.LMB)
         scene.set_camera(camera)
 
         # set the light
@@ -106,9 +116,14 @@ if __name__ == "__main__":
         # draw
         # scene.particles(pos, radius=0.02, color=(0, 1, 1))
         scene.mesh(body.vertex, indices=body.surfaces, color=(1.0, 0, 0), two_sided=False)
-        # scene.mesh(body.vertex, indices=body.surfaces, two_sided=False, per_vertex_color=ep_sys.vertex_color)
+        # scene.lines(fiber_field_vertex, color=(0., 1.0, 0.), width=1.0)
+
         # show the frame
         canvas.scene(scene)
         window.show()
 
-    # """
+    # print(camera.curr_position)
+    # print(camera.curr_lookat)
+    # print(camera.curr_up)
+
+

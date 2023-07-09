@@ -86,10 +86,28 @@ class Body:
     @ti.kernel
     def init_electrophysiology(self):
         for i in self.elements:
-            self.tet_Ta[i] = 100.0 * 10
+            self.tet_Ta[i] = 60.0
 
         for i in self.vertex:
-            self.ver_Ta[i] = 100.0 * 10
+            self.ver_Ta[i] = 60.0
+
+    @ti.kernel
+    def set_Ta(self, value: float):
+        for i in self.elements:
+            self.tet_Ta[i] = value
+
+        for i in self.vertex:
+            self.ver_Ta[i] = value
+
+    def get_min_y(self):
+        min_y = 10000000.0
+        # print("nv:", self.num_vertex)
+        for i in range(self.num_vertex):
+            # print("i:", i)
+            if min_y > self.vertex[i][1]:
+                min_y = self.vertex[i][1]
+        print(min_y)
+        return min_y
 
     @ti.kernel
     def scale_vertex(self, scale: float):

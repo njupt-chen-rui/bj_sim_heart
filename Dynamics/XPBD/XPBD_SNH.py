@@ -7,7 +7,9 @@ from Geometry.body import Body
 
 @ti.data_oriented
 class XPBD_SNH_with_active:
-    def __init__(self, body: Body, num_pts_np: np.ndarray, Youngs_modulus=1000.0, Poisson_ratio=0.49, dt=1. / 6., numSubsteps=1, numPosIters=1):
+    def __init__(self, body: Body, num_pts_np: np.ndarray, vert_fiber_np: np.ndarray,
+                 Youngs_modulus=1000.0, Poisson_ratio=0.49,
+                 dt=1. / 60., numSubsteps=1, numPosIters=1):
         self.body = body
         self.num_vertex = self.body.num_vertex
         self.num_element = self.body.num_tet
@@ -37,6 +39,8 @@ class XPBD_SNH_with_active:
         self.tet_Ta = body.tet_Ta
         self.init()
 
+        self.vert_fiber.from_numpy(vert_fiber_np)
+
     @ti.kernel
     def init(self):
         for i in self.pos:
@@ -55,7 +59,7 @@ class XPBD_SNH_with_active:
             self.invMass[i] = 1.0 / self.mass[i]
 
     def update(self):
-        self.update_Ta()
+        # self.update_Ta()
         for _ in range(self.numSubsteps):
             self.sub_step()
 
@@ -105,12 +109,12 @@ class XPBD_SNH_with_active:
     @ti.kernel
     def postSolve(self):
         pos, vel = ti.static(self.pos, self.vel)
-        for i in self.pos:
-            if pos[i][1] < 0.0:
-                pos[i][1] = 0.0
-                v = self.prevPos[i] - pos[i]
-                pos[i][0] += v[0] * tm.min(1.0, self.h * self.friction)
-                pos[i][2] += v[2] * tm.min(1.0, self.h * self.friction)
+        # for i in self.pos:
+        #     if pos[i][1] < 0.0:
+        #         pos[i][1] = 0.0
+        #         v = self.prevPos[i] - pos[i]
+        #         pos[i][0] += v[0] * tm.min(1.0, self.h * self.friction)
+        #         pos[i][2] += v[2] * tm.min(1.0, self.h * self.friction)
 
         for i in pos:
             vel[i] = (pos[i] - self.prevPos[i]) / self.h
@@ -297,6 +301,6 @@ if __name__ == "__main__":
     body = Body(pos_np, tet_np, edge_np, fiber_tet_np, sheet_tet_np, num_edge_set_np, edge_set_np, num_tet_set_np,
                 tet_set_np, bou_tag_dirichlet_np, bou_tag_neumann_np)
     # body.show()
-    sys = XPBD_SNH_active(body=body)
+    sys = XPBD_SNH_with_active(body=body)
     sys.update_Gauss_Seidel()
 

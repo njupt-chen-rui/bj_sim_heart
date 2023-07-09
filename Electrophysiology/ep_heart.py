@@ -152,9 +152,9 @@ class diffusion_reaction:
 
     @ti.kernel
     def init_fiber(self):
-        for i in range(self.body.num_tet):
-            self.body.tet_fiber[i] = tm.vec3([0., -1.0, 0.])
-            self.body.tet_sheet[i] = tm.vec3([1., 0., 0.])
+        # for i in range(self.body.num_tet):
+            # self.body.tet_fiber[i] = tm.vec3([0., -1.0, 0.])
+            # self.body.tet_sheet[i] = tm.vec3([1., 0., 0.])
         for i in range(self.body.num_tet):
             self.fiber[i] = self.F[i] @ self.body.tet_fiber[i]
             self.sheet[i] = self.F[i] @ self.body.tet_sheet[i]
@@ -686,7 +686,7 @@ if __name__ == "__main__":
                 tet_set_np, bou_tag_dirichlet_np, bou_tag_neumann_np)
 
     dr = diffusion_reaction(body)
-    sigma_para = 20
+    sigma_para = 50
     dr.sigma_f *= sigma_para
     dr.sigma_s *= sigma_para
     dr.sigma_n *= sigma_para
